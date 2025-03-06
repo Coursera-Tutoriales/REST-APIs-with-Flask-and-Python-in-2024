@@ -5,78 +5,80 @@ from flask_smorest import Blueprint, abort
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from utils.error_handler import get_error_message
 from db import db
-from models import StoreModel
-from schemas import MessageSchema, StoreSchema, StoreUpdateSchema
+from models import StoreModel as ObjectModel
+from schemas import MessageSchema 
+from schemas import StoreSchema as Schema
+from schemas import StoreUpdateSchema as UpdateSchema
 
 blp = Blueprint("Stores", __name__, description="Operations on stores")
-
+ 
 @blp.route("/store", methods=["GET", "POST"])
-@blp.route("/store/<string:store_id>", methods=["GET", "PUT", "DELETE"])
+@blp.route("/store/<string:id>", methods=["GET", "PUT", "DELETE"])
 class Store(MethodView):
     ########################## CREATE ##########################
-    @blp.arguments(StoreSchema)
-    @blp.response(201, StoreSchema)
-    def post(self, store_data):        
-        store = StoreModel(**store_data)        
+    @blp.arguments(Schema)
+    @blp.response(201, Schema)
+    def post(self, data):        
+        x = ObjectModel(**data)        
         try:        
-            db.session.add(store)    
+            db.session.add(x)    
             db.session.commit()
-            return store
+            return x
         except IntegrityError as e:
             db.session.rollback()
-            abort(400, message=get_error_message("A store with that name already exists.", e))
+            abort(400, message=get_error_message("An element with that name already exists.", e))
         except SQLAlchemyError as e:
             db.session.rollback()
             abort(500, message=get_error_message("A database error occurred.", e))
 
     ######################### RETRIEVE #########################
-    @blp.response(200, StoreSchema(many=True))
-    def get(self, store_id=None):
-        if store_id:
-            store = StoreModel.query.get_or_404(store_id)
-            return [store]
+    @blp.response(200, Schema(many=True))
+    def get(self, id=None):
+        if id:
+            x = ObjectModel.query.get_or_404(id)
+            return [x]
         try:
             page = request.args.get('page', 1, type=int)
             per_page = request.args.get('per_page', 10, type=int)
-            stores = StoreModel.query.order_by(StoreModel.name).paginate(page=page, per_page=per_page)
-            return stores.items
+            x = ObjectModel.query.order_by(ObjectModel.name).paginate(page=page, per_page=per_page)
+            return x.items
         except SQLAlchemyError as e:
-            abort(500, message=get_error_message("Error retrieving stores.", e))
+            abort(500, message=get_error_message("Error retrieving elements.", e))
 
     ######################### UPDATE BY ID #####################
-    @blp.arguments(StoreUpdateSchema)
-    @blp.response(200, StoreSchema)
-    def put(self, store_data, store_id):
-        store = StoreModel.query.get_or_404(store_id, description="Store not found")
-        if store_data:
+    @blp.arguments(UpdateSchema)
+    @blp.response(200, Schema)
+    def put(self, data, id):
+        x = ObjectModel.query.get_or_404(id, description="Element not found")
+        if data:
             try:
-                StoreModel.query.filter_by(id=store_id).update(store_data)
+                ObjectModel.query.filter_by(id=id).update(data)
                 db.session.commit()
-                db.session.refresh(store)
+                db.session.refresh(x)
 
             except IntegrityError as e:
                 db.session.rollback()
-                abort(400, message=get_error_message("A store with that name already exists.", e))
+                abort(400, message=get_error_message("An Element with that name already exists.", e))
             except SQLAlchemyError as e:
                 db.session.rollback()
-                abort(500, message=get_error_message("An error occurred while updating the store.", e))
+                abort(500, message=get_error_message("An error occurred while updating the element.", e))
 
-        return store
+        return x
     ######################### DELETE BY ID #####################
     @blp.response(200, MessageSchema)
-    def delete(self, store_id):
-        store = StoreModel.query.get_or_404(store_id, description="Store not found")
+    def delete(self, id):
+        x = ObjectModel.query.get_or_404(id, description="Element not found")
         try:
-            db.session.delete(store)
+            db.session.delete(x)
             db.session.flush()
             db.session.commit()
         except IntegrityError as e:
             db.session.rollback()
-            abort(400, message=get_error_message("Cannot delete the store because it has related records.", e))
+            abort(400, message=get_error_message("Cannot delete the element because it has related records.", e))
         except SQLAlchemyError as e:
             db.session.rollback()
-            abort(500, message=get_error_message("An error occurred while deleting the store.", e))
+            abort(500, message=get_error_message("An error occurred while deleting the element.", e))
 
-        return {"message": "Store deleted successfully"}
+        return {"message": "Element deleted successfully"}
 
    
